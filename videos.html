@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Videos • Media Gallery</title>
+  <meta name="description" content="Videos loaded from a JSON manifest.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Marvel:ital,wght@0,400;0,700;1,400;1,700&family=Rubik+Bubbles&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: light dark; --bg:#a97952; --fg:#111; --muted:#2a1c12; --accent:#2563eb; --btn-bg:#f3f4f6; --btn-fg:#111; --card-bg:#fff; --border:#e5e7eb; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#8a623f; --fg:#e5e7eb; --muted:#e0d2c8; --accent:#60a5fa; --btn-bg:#111827; --btn-fg:#e5e7eb; --card-bg:#0f172a; --border:#1f2937; } }
+    html, body { height: 100%; }
+    body { margin: 0; font-family: "Rubik Bubbles", system-ui; background: var(--bg); color: var(--fg); line-height: 1.5; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    header { position: sticky; top: 0; background: #000; border-bottom: 1px solid #111; z-index: 10; color:#fff; }
+    .header-content { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; }
+    h1 { font-size: 28px; margin: 0; color:#fff; }
+    .count-badge { font-size: 14px; margin-left: 8px; background: #5e3b22; color: #fff; border: 1px solid #4f321d; padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
+    nav { display:flex; gap:8px; flex-wrap:wrap; }
+    .btn { appearance:none; border:1px solid var(--border); background:var(--btn-bg); color:var(--btn-fg); padding:8px 12px; border-radius:8px; text-decoration:none; font-weight:600; font-size:14px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
+    .btn:hover { background: rgba(37,99,235,.12); }
+    header .btn { background:#734a2b; color:#fff; border-color:#5f3e24; font-size: 18px; padding: 10px 16px; }
+    header .btn:hover { background:#845430; }
+    header .btn.primary { background:#5e3b22; border-color:#4f321d; color:#fff; }
+    header .btn.primary:hover { background:#6b4427; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+    .section-title { font-size: 18px; margin: 18px 0 10px; }
+    .muted { color: var(--muted); }
+    .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:12px; }
+    .card { border:1px solid var(--border); border-radius:10px; background:var(--card-bg); overflow:hidden; display:flex; flex-direction:column; }
+    .player { width:100%; aspect-ratio:16/9; background:#1113; }
+    .empty { border:1px dashed var(--border); border-radius:10px; padding:20px; text-align:center; color:var(--muted); }
+    footer { padding:32px 0; color:var(--muted); text-align:center; font-size:12px; }
+  </style>
+  <link rel="icon" href="data:,">
+  <meta name="robots" content="noindex">
+</head>
+<body>
+  <header>
+    <div class="container header-content">
+      <h1>Video <span id="video-count" class="count-badge"></span></h1>
+      <nav>
+        <a class="btn" href="index.html">Home</a>
+        <a class="btn" href="photos.html">Foto</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section aria-labelledby="videos-title">
+      <!-- <h2 id="videos-title" class="section-title">Video</h2>
+      <p class="muted">Loaded from <code>videos.json</code>.</p> -->
+      <div id="video-grid" class="grid" role="list"></div>
+      <div id="video-empty" class="empty" hidden>No videos found in <code>videos.json</code>.</div>
+    </section>
+  </main>
+
+  <!-- <footer>
+    <div class="container">Ready for static hosting (e.g., GitHub Pages).</div>
+  </footer> -->
+  <script>
+    (function () {
+      const grid = document.getElementById('video-grid');
+      const emptyState = document.getElementById('video-empty');
+
+      function isYouTubeUrl(url) {
+        if (!url) return false;
+        return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(url);
+      }
+
+      function extractYouTubeId(url) {
+        try {
+          var u = new URL(url, location.origin);
+          if (u.hostname.includes('youtu.be')) {
+            return u.pathname.replace(/^\//, '');
+          }
+          if (u.hostname.includes('youtube.com')) {
+            // watch?v=ID or embed/ID or shorts/ID
+            if (u.searchParams.get('v')) return u.searchParams.get('v');
+            var m = u.pathname.match(/\/(embed|shorts)\/([^/?#]+)/);
+            if (m && m[2]) return m[2];
+          }
+        } catch (_) {}
+        return '';
+      }
+
+      function createCard(item) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        if (isYouTubeUrl(item.src)) {
+          const vid = extractYouTubeId(item.src);
+          const iframe = document.createElement('iframe');
+          iframe.className = 'player';
+          iframe.width = '560';
+          iframe.height = '315';
+          iframe.src = vid ? 'https://www.youtube.com/embed/' + encodeURIComponent(vid) : item.src;
+          iframe.title = item.title || 'YouTube video player';
+          iframe.frameBorder = '0';
+          iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+          iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+          iframe.allowFullscreen = true;
+          iframe.setAttribute('data-src', item.src);
+          card.appendChild(iframe);
+        } else {
+          const video = document.createElement('video');
+          video.className = 'player';
+          video.controls = true;
+          video.setAttribute('data-src', item.src);
+          if (item.poster) video.poster = item.poster;
+          const source = document.createElement('source');
+          source.src = item.src;
+          source.type = 'video/mp4';
+          video.appendChild(source);
+          card.appendChild(video);
+        }
+        return card;
+      }
+
+      async function loadVideos() {
+        try {
+          const res = await fetch('videos.json?v=' + Date.now(), { cache: 'no-store' });
+          if (!res.ok) throw new Error('Failed to fetch videos.json');
+          const manifest = await res.json();
+          const items = Array.isArray(manifest) ? manifest : (Array.isArray(manifest.videos) ? manifest.videos : []);
+          var countEl = document.getElementById('video-count');
+          if (countEl) countEl.textContent = String(items.length);
+          if (!items.length) { emptyState.hidden = false; return; }
+          const fragment = document.createDocumentFragment();
+          items.forEach(function (it) {
+            if (!it || !it.src) return;
+            fragment.appendChild(createCard(it));
+          });
+          if (!fragment.childNodes.length) { emptyState.hidden = false; return; }
+          grid.appendChild(fragment);
+          emptyState.hidden = true;
+
+          // If ?open=filename is present, focus and play that video
+          const params = new URLSearchParams(location.search);
+          const open = params.get('open');
+          if (open) {
+            const target = Array.from(document.querySelectorAll('video.player')).find(function (v) {
+              return (v.getAttribute('data-src') || '').endsWith(open);
+            });
+            if (target) {
+              target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              target.focus();
+
+              function tryRequestFullscreen(videoEl) {
+                if (videoEl.requestFullscreen) {
+                  return videoEl.requestFullscreen();
+                }
+                if (videoEl.webkitRequestFullscreen) {
+                  return videoEl.webkitRequestFullscreen();
+                }
+                if (videoEl.webkitEnterFullscreen) { // iOS Safari
+                  try { videoEl.webkitEnterFullscreen(); return Promise.resolve(); } catch (e) { return Promise.reject(e); }
+                }
+                return Promise.reject(new Error('Fullscreen API not available'));
+              }
+
+              function showTapOverlay(videoEl) {
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed';
+                overlay.style.inset = '0';
+                overlay.style.background = 'rgba(0,0,0,.6)';
+                overlay.style.display = 'flex';
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'center';
+                overlay.style.zIndex = '60';
+                const btn = document.createElement('button');
+                btn.textContent = 'Clicca per riprodurre a schermo intero';
+                btn.className = 'btn big primary';
+                btn.style.cursor = 'pointer';
+                btn.style.pointerEvents = 'auto';
+                // Theme-consistent colors
+                btn.style.background = '#5e3b22';
+                btn.style.borderColor = '#4f321d';
+                btn.style.color = '#ffffff';
+                btn.style.borderWidth = '2px';
+                btn.style.borderStyle = 'solid';
+                btn.style.padding = '18px 28px';
+                btn.style.borderRadius = '14px';
+                btn.style.boxShadow = '0 6px 20px rgba(0,0,0,.35)';
+                overlay.appendChild(btn);
+                document.body.appendChild(overlay);
+                function cleanup() { if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+                btn.addEventListener('click', function () {
+                  videoEl.play().catch(function () {}).then(function(){
+                    tryRequestFullscreen(videoEl).catch(function () {});
+                  });
+                  cleanup();
+                }, { once: true });
+              }
+
+              // attempt autoplay then fullscreen
+              target.play().catch(function () {}).then(function () {
+                tryRequestFullscreen(target).catch(function () {
+                  // show user prompt if blocked
+                  showTapOverlay(target);
+                });
+              });
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          emptyState.hidden = false;
+          emptyState.textContent = 'Unable to load videos. Ensure videos.json is accessible.';
+          var countEl = document.getElementById('video-count');
+          if (countEl) countEl.textContent = '0';
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadVideos);
+      } else {
+        loadVideos();
+      }
+
+      // Video lightbox with navigation
+      let lbIndex = -1;
+      let lbSources = [];
+
+      function collectSources() {
+        lbSources = Array.from(document.querySelectorAll('#video-grid video.player'))
+          .map(function (v) { return v.getAttribute('data-src') || (v.querySelector('source') && v.querySelector('source').src) || ''; })
+          .filter(Boolean);
+      }
+
+      const overlay = document.createElement('div');
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.style.position = 'fixed';
+      overlay.style.inset = '0';
+      overlay.style.background = 'rgba(0,0,0,.9)';
+      overlay.style.display = 'none';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      overlay.style.zIndex = '70';
+
+      const player = document.createElement('video');
+      player.className = 'player';
+      player.controls = true;
+      player.style.width = 'min(95vw, 1400px)';
+      player.style.maxHeight = '90vh';
+      player.style.background = '#000';
+      player.setAttribute('playsinline', '');
+
+      const srcEl = document.createElement('source');
+      srcEl.type = 'video/mp4';
+      player.appendChild(srcEl);
+
+      function setVideoSource(url) {
+        // Support relative paths
+        srcEl.src = url;
+        player.load();
+        player.play().catch(function () {});
+      }
+
+      function openLB(index) {
+        if (!lbSources.length) return;
+        lbIndex = index;
+        overlay.style.display = 'flex';
+        overlay.setAttribute('aria-hidden', 'false');
+        setVideoSource(lbSources[lbIndex]);
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeLB() {
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+        player.pause();
+        srcEl.src = '';
+        player.load();
+        document.body.style.overflow = '';
+      }
+
+      function nextLB() {
+        if (!lbSources.length) return;
+        lbIndex = (lbIndex + 1) % lbSources.length;
+        setVideoSource(lbSources[lbIndex]);
+      }
+
+      function prevLB() {
+        if (!lbSources.length) return;
+        lbIndex = (lbIndex - 1 + lbSources.length) % lbSources.length;
+        setVideoSource(lbSources[lbIndex]);
+      }
+
+      const controls = document.createElement('div');
+      controls.style.position = 'fixed';
+      controls.style.inset = '0';
+      controls.style.display = 'flex';
+      controls.style.alignItems = 'center';
+      controls.style.justifyContent = 'space-between';
+      controls.style.pointerEvents = 'none';
+
+      function mkBtn(txt) {
+        const b = document.createElement('button');
+        b.textContent = txt;
+        b.className = 'btn';
+        b.style.pointerEvents = 'auto';
+        b.style.background = '#5e3b22';
+        b.style.color = '#fff';
+        b.style.borderColor = '#4f321d';
+        return b;
+      }
+
+      const prevBtn = mkBtn('‹');
+      const nextBtn = mkBtn('›');
+      const closeBtn = mkBtn('✕');
+      closeBtn.style.position = 'fixed';
+      closeBtn.style.top = '10px';
+      closeBtn.style.right = '10px';
+
+      controls.appendChild(prevBtn);
+      controls.appendChild(document.createElement('div'));
+      controls.appendChild(nextBtn);
+
+      overlay.appendChild(player);
+      overlay.appendChild(controls);
+      overlay.appendChild(closeBtn);
+      document.body.appendChild(overlay);
+
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) closeLB(); });
+      closeBtn.addEventListener('click', closeLB);
+      prevBtn.addEventListener('click', function (e) { e.stopPropagation(); prevLB(); });
+      nextBtn.addEventListener('click', function (e) { e.stopPropagation(); nextLB(); });
+      document.addEventListener('keydown', function (e) {
+        if (overlay.style.display === 'none') return;
+        if (e.key === 'Escape') closeLB();
+        if (e.key === 'ArrowRight') nextLB();
+        if (e.key === 'ArrowLeft') prevLB();
+      });
+
+      grid.addEventListener('click', function (e) {
+        const v = e.target && e.target.closest && e.target.closest('video.player');
+        if (!v) return;
+        if (!lbSources.length) collectSources();
+        const all = Array.from(document.querySelectorAll('#video-grid video.player'));
+        const idx = Math.max(0, all.indexOf(v));
+        openLB(idx);
+      });
+    })();
+  </script>
+</body>
+</html>
+
+

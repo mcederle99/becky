@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Media Gallery</title>
+  <meta name="description" content="A simple media gallery that loads photos from a JSON manifest.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Marvel:ital,wght@0,400;0,700;1,400;1,700&family=Rubik+Bubbles&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #a97952;
+      --fg: #111111;
+      --muted: #2a1c12;
+      --accent: #2563eb;
+      --btn-bg: #f3f4f6;
+      --btn-fg: #111111;
+      --card-bg: #ffffff;
+      --border: #e5e7eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0b0b0c;
+        --fg: #e5e7eb;
+        --muted: #a3a3a3;
+        --accent: #60a5fa;
+        --btn-bg: #111827;
+        --btn-fg: #e5e7eb;
+        --card-bg: #0f172a;
+        --border: #1f2937;
+      }
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: "Rubik Bubbles", system-ui;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      background: #000;
+      border-bottom: 1px solid #111;
+      z-index: 10;
+      color: #fff;
+    }
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+    }
+    .brand { display:flex; align-items:center; gap:10px; }
+    .logo-img { height: 36px; width: 36px; object-fit: cover; border-radius: 6px; display:block; }
+    h1 { font-size: 28px; margin: 0; color:#fff; }
+    nav { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--btn-bg);
+      color: var(--btn-fg);
+      padding: 8px 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      transition: transform .02s ease-in-out, background .2s;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn:focus, .btn:hover { outline: none; background: rgba(37,99,235,0.12); }
+    header .btn { background:#734a2b; color:#fff; border-color:#5f3e24; font-size: 18px; padding: 10px 16px; }
+    header .btn:hover { background:#845430; }
+    header .btn.primary { background:#5e3b22; border-color:#4f321d; color:#fff; }
+    header .btn.primary:hover { background:#6b4427; }
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    section { scroll-margin-top: 64px; }
+    .section-title { font-size: 18px; margin: 18px 0 10px; }
+    .muted { color: var(--muted); }
+    /* Home hero */
+    .hero { min-height: calc(100vh - 140px); display: grid; place-items: center; }
+    .hero-inner { width: 100%; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 28px; }
+    .hero-image { width: 100%; max-width: 520px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.25); display:block; }
+    .hero-actions { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; align-items: center; }
+    .btn.big { font-size: 28px; padding: 22px 36px; border-radius: 16px; border-width: 2px; }
+    /* Earthy tones for hero buttons */
+    .btn.big.primary { background: #5e3b22; border-color: #4f321d; color: #fff; }
+    .btn.big.primary:hover { background: #6b4427; }
+    .btn.big.secondary { background: #734a2b; border-color: #5f3e24; color: #fff; }
+    .btn.big.secondary:hover { background: #845430; }
+    /* Photos grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card-bg);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .thumb {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      background: #1113;
+    }
+    figure { margin: 0; }
+    figcaption {
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      border-top: 1px solid var(--border);
+    }
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+    footer {
+      padding: 32px 0;
+      color: var(--muted);
+      text-align: center;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container header-content">
+      <div class="brand">
+        <a href="" title="Open special video"> <!-- AGGIUNGI QUA LINK A VIDEO SPECIALE -->
+          <img class="logo-img" src="18077.png" alt="Logo">
+        </a>
+        <h1>Becky❤️</h1>
+      </div>
+      <nav>
+        <a class="btn primary" href="photos.html" aria-label="Go to Photos page">Foto</a>
+        <a class="btn" href="videos.html" aria-label="Go to Videos page">Video</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container hero">
+    <section aria-labelledby="welcome-title">
+      <!-- <h2 id="welcome-title" class="section-title">Welcome</h2>
+      <p class="muted">Choose a section to view your media.</p> -->
+      <div class="hero-inner">
+        <div>
+          <img class="hero-image" src="homeimage.jpeg" alt="Home image">
+        </div>
+        <div class="hero-actions">
+          <a class="btn big primary" href="photos.html" aria-label="Go to Photos page">Foto</a>
+          <a class="btn big secondary" href="videos.html" aria-label="Go to Videos page">Video</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container"></div>
+  </footer>
+
+  
+</body>
+</html>
+
+

@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Photos • Media Gallery</title>
+  <meta name="description" content="Photos loaded from a JSON manifest.">
+  <link rel="preload" as="fetch" href="index.json" crossorigin="anonymous">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Marvel:ital,wght@0,400;0,700;1,400;1,700&family=Rubik+Bubbles&display=swap" rel="stylesheet">
+  <style>
+    :root { color-scheme: light dark; --bg:#a97952; --fg:#111; --muted:#2a1c12; --accent:#2563eb; --btn-bg:#f3f4f6; --btn-fg:#111; --card-bg:#fff; --border:#e5e7eb; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#8a623f; --fg:#e5e7eb; --muted:#e0d2c8; --accent:#60a5fa; --btn-bg:#111827; --btn-fg:#e5e7eb; --card-bg:#0f172a; --border:#1f2937; } }
+    html, body { height: 100%; }
+    body { margin: 0; font-family: "Rubik Bubbles", system-ui; background: var(--bg); color: var(--fg); line-height: 1.5; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    header { position: sticky; top: 0; background: #000; border-bottom: 1px solid #111; z-index: 10; color:#fff; }
+    .header-content { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; }
+    h1 { font-size: 28px; margin: 0; color:#fff; }
+    .count-badge { font-size: 14px; margin-left: 8px; background: #5e3b22; color: #fff; border: 1px solid #4f321d; padding: 2px 8px; border-radius: 999px; vertical-align: middle; }
+    nav { display:flex; gap:8px; flex-wrap:wrap; }
+    .btn { appearance:none; border:1px solid var(--border); background:var(--btn-bg); color:var(--btn-fg); padding:8px 12px; border-radius:8px; text-decoration:none; font-weight:600; font-size:14px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
+    .btn:hover { background: rgba(37,99,235,.12); }
+    header .btn { background:#734a2b; color:#fff; border-color:#5f3e24; font-size: 18px; padding: 10px 16px; }
+    header .btn:hover { background:#845430; }
+    header .btn.primary { background:#5e3b22; border-color:#4f321d; color:#fff; }
+    header .btn.primary:hover { background:#6b4427; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+    .section-title { font-size: 18px; margin: 18px 0 10px; }
+    .muted { color: var(--muted); }
+    .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:14px; }
+    .card { border:1px solid var(--border); border-radius:10px; background:var(--card-bg); overflow:hidden; display:flex; }
+    .thumb { width:100%; aspect-ratio:4/3; object-fit:cover; background:#1113; cursor: zoom-in; }
+    figure { margin:0; }
+    .empty { border:1px dashed var(--border); border-radius:10px; padding:20px; text-align:center; color:var(--muted); }
+    footer { padding:32px 0; color:var(--muted); text-align:center; font-size:12px; }
+  </style>
+  <link rel="icon" href="data:,">
+  <meta name="robots" content="noindex">
+</head>
+<body>
+  <header>
+    <div class="container header-content">
+      <h1>Foto <span id="photo-count" class="count-badge"></span></h1>
+      <nav>
+        <a class="btn" href="index.html">Home</a>
+        <a class="btn" href="videos.html">Video</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section aria-labelledby="photos-title">
+      <!-- <h2 id="photos-title" class="section-title">Gallery</h2>
+      <p class="muted">Loaded from <code>index.json</code>.</p> -->
+      <div id="photo-grid" class="grid" role="list"></div>
+      <div id="photo-empty" class="empty" hidden>No photos found in <code>index.json</code>.</div>
+    </section>
+  </main>
+
+  <!-- <footer>
+    <div class="container">Ready for static hosting (e.g., GitHub Pages).</div>
+  </footer> -->
+
+  <script>
+    (function () {
+      const grid = document.getElementById('photo-grid');
+      const emptyState = document.getElementById('photo-empty');
+
+      function createFigure(src, index) {
+        const figure = document.createElement('figure');
+        figure.className = 'card';
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.src = src;
+        img.alt = typeof src === 'string' ? (src.split('/').pop() || 'photo') : 'photo';
+        img.setAttribute('data-index', String(index));
+        figure.appendChild(img);
+        return figure;
+      }
+
+      async function loadPhotos() {
+        try {
+          const res = await fetch('index.json?v=' + Date.now(), { cache: 'no-store' });
+          if (!res.ok) throw new Error('Failed to fetch index.json');
+          const manifest = await res.json();
+          const files = Array.isArray(manifest) ? manifest : (Array.isArray(manifest.photos) ? manifest.photos : []);
+          var countEl = document.getElementById('photo-count');
+          if (countEl) countEl.textContent = String(files.length);
+          if (!files.length) { emptyState.hidden = false; return; }
+          const fragment = document.createDocumentFragment();
+          files.forEach(function (item, i) {
+            const src = typeof item === 'string' ? item : (item && item.src) || '';
+            if (!src) return;
+            fragment.appendChild(createFigure(src, i));
+          });
+          if (!fragment.childNodes.length) { emptyState.hidden = false; return; }
+          grid.appendChild(fragment);
+          emptyState.hidden = true;
+        } catch (err) {
+          console.error(err);
+          emptyState.hidden = false;
+          emptyState.textContent = 'Unable to load photos. Ensure index.json is accessible.';
+          var countEl = document.getElementById('photo-count');
+          if (countEl) countEl.textContent = '0';
+        }
+      }
+
+      // Lightbox modal
+      let lightboxIndex = -1;
+      let lightboxSources = [];
+
+      function openLightbox(index) {
+        if (!lightboxSources.length) return;
+        lightboxIndex = index;
+        overlay.style.display = 'grid';
+        overlay.setAttribute('aria-hidden', 'false');
+        lightboxImg.src = lightboxSources[lightboxIndex];
+        document.body.style.overflow = 'hidden';
+      }
+      function closeLightbox() {
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+        lightboxImg.src = '';
+        document.body.style.overflow = '';
+      }
+      function nextImage() {
+        if (!lightboxSources.length) return;
+        lightboxIndex = (lightboxIndex + 1) % lightboxSources.length;
+        lightboxImg.src = lightboxSources[lightboxIndex];
+      }
+      function prevImage() {
+        if (!lightboxSources.length) return;
+        lightboxIndex = (lightboxIndex - 1 + lightboxSources.length) % lightboxSources.length;
+        lightboxImg.src = lightboxSources[lightboxIndex];
+      }
+
+      // Build overlay
+      const overlay = document.createElement('div');
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.style.position = 'fixed';
+      overlay.style.inset = '0';
+      overlay.style.background = 'rgba(0,0,0,.9)';
+      overlay.style.display = 'none';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.display = 'none';
+      overlay.style.zIndex = '50';
+
+      const lightboxImg = document.createElement('img');
+      lightboxImg.style.maxWidth = 'min(95vw, 1400px)';
+      lightboxImg.style.maxHeight = '90vh';
+      lightboxImg.style.objectFit = 'contain';
+      lightboxImg.alt = '';
+
+      const controls = document.createElement('div');
+      controls.style.position = 'fixed';
+      controls.style.inset = '0';
+      controls.style.display = 'flex';
+      controls.style.alignItems = 'center';
+      controls.style.justifyContent = 'space-between';
+      controls.style.pointerEvents = 'none';
+
+      function makeBtn(text) {
+        const b = document.createElement('button');
+        b.textContent = text;
+        b.className = 'btn';
+        b.style.pointerEvents = 'auto';
+        b.style.background = 'rgba(255,255,255,.1)';
+        b.style.color = 'white';
+        b.style.borderColor = 'rgba(255,255,255,.2)';
+        return b;
+      }
+
+      const prevBtn = makeBtn('‹');
+      const nextBtn = makeBtn('›');
+      const closeBtn = makeBtn('✕');
+      closeBtn.style.position = 'fixed';
+      closeBtn.style.top = '10px';
+      closeBtn.style.right = '10px';
+
+      controls.appendChild(prevBtn);
+      controls.appendChild(document.createElement('div'));
+      controls.appendChild(nextBtn);
+
+      overlay.appendChild(lightboxImg);
+      overlay.appendChild(controls);
+      overlay.appendChild(closeBtn);
+      document.body.appendChild(overlay);
+
+      // Events
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) closeLightbox();
+      });
+      closeBtn.addEventListener('click', closeLightbox);
+      prevBtn.addEventListener('click', function (e) { e.stopPropagation(); prevImage(); });
+      nextBtn.addEventListener('click', function (e) { e.stopPropagation(); nextImage(); });
+      document.addEventListener('keydown', function (e) {
+        if (overlay.style.display === 'none') return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowRight') nextImage();
+        if (e.key === 'ArrowLeft') prevImage();
+      });
+
+      function hydrateLightboxSources() {
+        lightboxSources = Array.from(document.querySelectorAll('#photo-grid img.thumb')).map(function (img) { return img.src; });
+      }
+
+      grid.addEventListener('click', function (e) {
+        const target = e.target;
+        if (target && target.matches('img.thumb')) {
+          if (!lightboxSources.length) hydrateLightboxSources();
+          const idx = Number(target.getAttribute('data-index') || '0') || 0;
+          openLightbox(idx);
+        }
+      });
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { loadPhotos().then(hydrateLightboxSources); });
+      } else {
+        loadPhotos().then(hydrateLightboxSources);
+      }
+    })();
+  </script>
+</body>
+</html>
+
+
